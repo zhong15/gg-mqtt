@@ -37,10 +37,11 @@
 		<revision>0.0.1-SNAPSHOT</revision>
 		<version.spring-cloud-dependencies>Hoxton.SR10</version.spring-cloud-dependencies>
 		<version.flatten-maven-plugin>1.1.0</version.flatten-maven-plugin>
+		<version.slf4j-api>1.7.30</version.slf4j-api>
+		<version.logback-core>1.2.3</version.logback-core>
+		<version.logback-classic>1.2.3</version.logback-classic>
+		<version.netty-all>4.1.58.Final</version.netty-all>
 	</properties>
-
-	<dependencies>
-	</dependencies>
 
 	<build>
 		<plugins>
