@@ -18,7 +18,6 @@ package zhong.gg.mqtt.server.connect;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
-import io.netty.handler.codec.mqtt.MqttConnectVariableHeader;
 import zhong.gg.mqtt.server.Server;
 
 /**
@@ -26,11 +25,13 @@ import zhong.gg.mqtt.server.Server;
  * @since 0.0.1
  */
 public interface ConnectServer extends Server {
-    void putClient(String clientId, Channel channel);
+    void putChannel(String clientId, Channel channel);
 
-    Channel removeClient(String clientId);
+    Channel removeChannel(String clientId);
 
-    Channel getClient(String clientId);
+    Channel getChannel(String clientId);
+
+    String getClientId(Channel channel);
 
     void putConnectMessage(String clientId, MqttConnectMessage msg);
 
@@ -43,12 +44,4 @@ public interface ConnectServer extends Server {
     Session removeSession(String clientId);
 
     Session getSession(String clientId);
-
-    void refreshTime(String clientId);
-
-    Long removeRefreshTime(String clientId);
-
-    Long getRefreshTime(String clientId);
-
-    void checkKeepAlive();
 }

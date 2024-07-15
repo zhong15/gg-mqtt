@@ -20,6 +20,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import zhong.gg.mqtt.server.connect.ConnectServer;
 
 /**
  * @author Zhong
@@ -32,5 +33,5 @@ public interface ConnectAction {
 
     Object onDisconnect(ChannelHandlerContext ctx, MqttMessage msg);
 
-    void doDisconnect(String client);
+    void doDisconnect(ChannelHandlerContext ctx, ConnectServer connectServer);
 }
