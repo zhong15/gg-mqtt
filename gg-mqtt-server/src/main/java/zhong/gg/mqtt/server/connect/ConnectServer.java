@@ -31,8 +31,6 @@ public interface ConnectServer extends Server {
 
     Channel getChannel(String clientId);
 
-    String getClientId(Channel channel);
-
     void putConnectMessage(String clientId, MqttConnectMessage msg);
 
     MqttConnectMessage removeConnectMessage(String clientId);
