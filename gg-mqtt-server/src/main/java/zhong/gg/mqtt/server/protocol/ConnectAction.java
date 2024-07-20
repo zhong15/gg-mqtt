@@ -29,6 +29,8 @@ import zhong.gg.mqtt.server.connect.ConnectServer;
 public interface ConnectAction {
     Object onConnect(ChannelHandlerContext ctx, MqttConnectMessage msg);
 
+    Object onAuth(ChannelHandlerContext ctx, MqttMessage msg);
+
     Object onConnAck(ChannelHandlerContext ctx, MqttConnAckMessage msg);
 
     Object onDisconnect(ChannelHandlerContext ctx, MqttMessage msg);

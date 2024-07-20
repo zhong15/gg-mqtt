@@ -18,6 +18,7 @@ package zhong.gg.mqtt.server.connect;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import zhong.gg.mqtt.server.Server;
 
 /**
@@ -42,4 +43,8 @@ public interface ConnectServer extends Server {
     Session removeSession(String clientId);
 
     Session getSession(String clientId);
+
+    void addSubscribe(String client, MqttSubscribeMessage msg);
+
+    MqttSubscribeMessage removeSubscribe(String client, MqttSubscribeMessage msg);
 }
