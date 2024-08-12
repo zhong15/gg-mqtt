@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-package zhong.gg.mqtt.server.protocol;
+package zhong.gg.mqtt.server;
 
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
+
+import java.util.Queue;
 
 /**
  * @author Zhong
  * @since 0.0.1
  */
-public interface PingAction extends Action {
-    Object onPingReq(ChannelHandlerContext ctx, MqttMessage msg);
+public interface Broker {
+    Queue<MqttPublishMessage> qos0Queue();
 
-    Object onPingResp(ChannelHandlerContext ctx, MqttMessage msg);
+    Queue<MqttPublishMessage> qos1Queue();
+
+    Queue<MqttPublishMessage> qos2Queue();
 }

@@ -17,14 +17,20 @@
 package zhong.gg.mqtt.server.protocol;
 
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.util.Attribute;
+import zhong.gg.mqtt.server.GGConstant;
 
 /**
  * @author Zhong
  * @since 0.0.1
  */
-public interface PingAction extends Action {
-    Object onPingReq(ChannelHandlerContext ctx, MqttMessage msg);
+public interface Action {
+    default String getClientId(ChannelHandlerContext ctx) {
+        Attribute<String> clientId = ctx.channel().attr(GGConstant.ATTR_CLIENT_ID);
+        return clientId == null ? null : clientId.get();
+    }
 
-    Object onPingResp(ChannelHandlerContext ctx, MqttMessage msg);
+    default void setClientId(ChannelHandlerContext ctx, String clientId) {
+        ctx.channel().attr(GGConstant.ATTR_CLIENT_ID).set(clientId);
+    }
 }

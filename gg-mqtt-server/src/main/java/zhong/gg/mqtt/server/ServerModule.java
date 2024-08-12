@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
-package zhong.gg.mqtt.server.protocol;
+package zhong.gg.mqtt.server;
 
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.MqttMessage;
+import com.google.inject.AbstractModule;
+import zhong.gg.mqtt.server.connect.ConnectServer;
 
 /**
  * @author Zhong
  * @since 0.0.1
  */
-public interface PingAction extends Action {
-    Object onPingReq(ChannelHandlerContext ctx, MqttMessage msg);
-
-    Object onPingResp(ChannelHandlerContext ctx, MqttMessage msg);
+public class ServerModule extends AbstractModule {
+    @Override
+    protected void configure() {
+        bind(Server.class).to(GgServer.class);
+        bind(ConnectServer.class).to(GgServer.class);
+        bind(Broker.class).to(GgServer.class);
+        bind(PacketIdHolder.class).to(GgServer.class);
+    }
 }

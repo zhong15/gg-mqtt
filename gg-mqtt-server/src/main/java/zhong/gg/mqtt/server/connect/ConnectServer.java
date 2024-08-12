@@ -19,7 +19,11 @@ package zhong.gg.mqtt.server.connect;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import zhong.gg.mqtt.server.Server;
+
+import java.util.Map;
 
 /**
  * @author Zhong
@@ -44,7 +48,9 @@ public interface ConnectServer extends Server {
 
     Session getSession(String clientId);
 
-    void addSubscribe(String client, MqttSubscribeMessage msg);
+    boolean addSubscribe(String clientId, MqttSubscribeMessage msg);
 
-    MqttSubscribeMessage removeSubscribe(String client, MqttSubscribeMessage msg);
+    MqttSubscribeMessage removeSubscribe(String clientId, MqttUnsubscribeMessage msg);
+
+    Map<String, MqttTopicSubscription> getSubscribeMap(String topicName);
 }

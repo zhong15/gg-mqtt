@@ -18,13 +18,16 @@ package zhong.gg.mqtt.server.protocol;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 
 /**
  * @author Zhong
  * @since 0.0.1
  */
-public interface PingAction extends Action {
-    Object onPingReq(ChannelHandlerContext ctx, MqttMessage msg);
+public interface Publisher extends Action {
+    Object onPubAck(ChannelHandlerContext ctx, MqttPubAckMessage msg);
 
-    Object onPingResp(ChannelHandlerContext ctx, MqttMessage msg);
+    Object onPubRec(ChannelHandlerContext ctx, MqttMessage msg);
+
+    Object onPubComp(ChannelHandlerContext ctx, MqttMessage msg);
 }

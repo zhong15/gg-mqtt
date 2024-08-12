@@ -16,22 +16,9 @@
 
 package zhong.gg.mqtt.server.protocol;
 
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.MqttPubAckMessage;
-import io.netty.handler.codec.mqtt.MqttPublishMessage;
-
 /**
  * @author Zhong
  * @since 0.0.1
  */
-public interface PublishAction {
-    Object onPublish(ChannelHandlerContext ctx, MqttPublishMessage msg);
-
-    Object onPubAck(ChannelHandlerContext ctx, MqttPubAckMessage msg);
-
-    Object onPubRec(ChannelHandlerContext ctx, MqttPubAckMessage msg);
-
-    Object onPubRel(ChannelHandlerContext ctx, MqttPubAckMessage msg);
-
-    Object onPubComp(ChannelHandlerContext ctx, MqttPubAckMessage msg);
+public interface PublishAction extends Receiver, Publisher {
 }

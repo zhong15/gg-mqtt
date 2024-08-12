@@ -16,10 +16,13 @@
 
 package zhong.gg.mqtt.server.connect.auth;
 
+import com.google.inject.Singleton;
+
 /**
  * @author Zhong
  * @since 0.0.1
  */
+@Singleton
 public class AuthServiceImpl implements AuthService {
     @Override
     public boolean auth(String username, byte[] password) {

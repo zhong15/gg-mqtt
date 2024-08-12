@@ -26,7 +26,7 @@ import zhong.gg.mqtt.server.connect.ConnectServer;
  * @author Zhong
  * @since 0.0.1
  */
-public interface ConnectAction {
+public interface ConnectAction extends Action {
     Object onConnect(ChannelHandlerContext ctx, MqttConnectMessage msg);
 
     Object onAuth(ChannelHandlerContext ctx, MqttMessage msg);

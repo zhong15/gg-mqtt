@@ -14,17 +14,14 @@
  * limitations under the License.
  */
 
-package zhong.gg.mqtt.server.protocol;
-
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.MqttMessage;
+package zhong.gg.mqtt.server;
 
 /**
  * @author Zhong
  * @since 0.0.1
  */
-public interface PingAction extends Action {
-    Object onPingReq(ChannelHandlerContext ctx, MqttMessage msg);
+public interface PacketIdHolder {
+    int incrementAndLockPacketId(String clientId);
 
-    Object onPingResp(ChannelHandlerContext ctx, MqttMessage msg);
+    void unlockPacketId(String clientId, int packetId);
 }

@@ -16,9 +16,12 @@
 
 package zhong.gg.mqtt.server.connect;
 
+import io.netty.handler.codec.mqtt.MqttMessage;
+
 /**
  * @author Zhong
  * @since 0.0.1
  */
 public interface Session {
+    void addMessage(MqttMessage msg);
 }

@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package zhong.gg.mqtt.server.protocol;
+package zhong.gg.mqtt.server.connect;
 
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttMessage;
 
 /**
  * @author Zhong
  * @since 0.0.1
  */
-public interface PingAction extends Action {
-    Object onPingReq(ChannelHandlerContext ctx, MqttMessage msg);
+public class GgSession implements Session {
+    @Override
+    public void addMessage(MqttMessage msg) {
 
-    Object onPingResp(ChannelHandlerContext ctx, MqttMessage msg);
+    }
 }

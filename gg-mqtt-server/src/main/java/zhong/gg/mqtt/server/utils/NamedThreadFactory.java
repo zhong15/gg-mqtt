@@ -14,17 +14,26 @@
  * limitations under the License.
  */
 
-package zhong.gg.mqtt.server.protocol;
+package zhong.gg.mqtt.server.utils;
 
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.MqttMessage;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Zhong
  * @since 0.0.1
  */
-public interface PingAction extends Action {
-    Object onPingReq(ChannelHandlerContext ctx, MqttMessage msg);
+public class NamedThreadFactory implements ThreadFactory {
+    private final AtomicInteger threadNumber = new AtomicInteger(1);
+    private final String namePrefix;
 
-    Object onPingResp(ChannelHandlerContext ctx, MqttMessage msg);
+    public NamedThreadFactory(String namePrefix) {
+        this.namePrefix = namePrefix;
+    }
+
+    @Override
+    public Thread newThread(Runnable r) {
+        Thread thread = new Thread(r, namePrefix + "-" + threadNumber.getAndIncrement());
+        return thread;
+    }
 }

@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-package zhong.gg.mqtt.server.protocol;
+package zhong.gg.mqtt.server;
 
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.MqttMessage;
+import java.util.EventListener;
 
 /**
  * @author Zhong
  * @since 0.0.1
  */
-public interface PingAction extends Action {
-    Object onPingReq(ChannelHandlerContext ctx, MqttMessage msg);
+public interface Service extends EventListener {
+    void start();
 
-    Object onPingResp(ChannelHandlerContext ctx, MqttMessage msg);
+    void stop();
 }

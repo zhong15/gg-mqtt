@@ -25,7 +25,7 @@ import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
  * @author Zhong
  * @since 0.0.1
  */
-public interface SubscribeAction {
+public interface SubscribeAction extends Action {
     Object onSubscribe(ChannelHandlerContext ctx, MqttSubscribeMessage msg);
 
     Object onSubAck(ChannelHandlerContext ctx, MqttSubAckMessage msg);
