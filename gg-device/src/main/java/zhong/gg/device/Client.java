@@ -67,7 +67,7 @@ public class Client {
     }
 
     private static MqttMessage connectMessage() {
-        MqttMessage msg = MqttMessageBuilders.connect()
+        return MqttMessageBuilders.connect()
                 // variableHeader
                 .protocolVersion(MqttVersion.MQTT_5)
                 .hasUser(true)
@@ -84,7 +84,6 @@ public class Client {
                 .username("xiaoming")
                 .password("pasword".getBytes())
                 .build();
-        return msg;
     }
 
     static MqttMessage publishMessage() {
@@ -93,13 +92,12 @@ public class Client {
         for (int i = 0; i < s.length(); i++)
             buf.writeChar(s.charAt(i));
 
-        MqttMessage msg = MqttMessageBuilders.publish()
+        return MqttMessageBuilders.publish()
                 .messageId(1)
                 .retained(false)
                 .topicName("haha")
                 .qos(MqttQoS.AT_MOST_ONCE)
                 .payload(buf)
                 .build();
-        return msg;
     }
 }

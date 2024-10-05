@@ -38,15 +38,15 @@ import zhong.gg.mqtt.server.utils.TopicUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * @author Zhong
  * @since 0.0.1
  */
 @Singleton
-public class GgServer implements ConnectServer, Broker, PacketIdHolder {
+public class GgServer implements Server, ConnectServer, Broker, PacketIdHolder {
     private static final Logger log = LoggerFactory.getLogger(GgServer.class);
 
     public static final int DEFAULT_SERVER_PORT = 8080;
@@ -157,9 +157,9 @@ public class GgServer implements ConnectServer, Broker, PacketIdHolder {
 
     private void initBroker() {
         log.info("init broker");
-        this.qos0Queue = new ConcurrentLinkedQueue<>();
-        this.qos1Queue = new ConcurrentLinkedQueue<>();
-        this.qos2Queue = new ConcurrentLinkedQueue<>();
+        this.qos0Queue = new LinkedBlockingQueue<>();
+        this.qos1Queue = new LinkedBlockingQueue<>();
+        this.qos2Queue = new LinkedBlockingQueue<>();
     }
 
     private void initState() {

@@ -21,7 +21,6 @@ import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
-import zhong.gg.mqtt.server.Server;
 
 import java.util.Map;
 
@@ -29,7 +28,7 @@ import java.util.Map;
  * @author Zhong
  * @since 0.0.1
  */
-public interface ConnectServer extends Server {
+public interface ConnectServer {
     void putChannel(String clientId, Channel channel);
 
     Channel removeChannel(String clientId);

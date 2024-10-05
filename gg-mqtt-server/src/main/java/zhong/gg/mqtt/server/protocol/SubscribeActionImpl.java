@@ -20,6 +20,8 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import zhong.gg.mqtt.server.GGConstant;
 import zhong.gg.mqtt.server.connect.ConnectServer;
 
@@ -29,6 +31,8 @@ import zhong.gg.mqtt.server.connect.ConnectServer;
  */
 @Singleton
 public class SubscribeActionImpl implements SubscribeAction {
+    private static final Logger log = LoggerFactory.getLogger(SubscribeActionImpl.class);
+
     private ConnectServer connectServer;
 
     @Inject
@@ -63,15 +67,45 @@ public class SubscribeActionImpl implements SubscribeAction {
     }
 
     private static MqttSubAckMessage subAckMessage(MqttSubscribeMessage subMsg, boolean success) {
-        MqttMessageBuilders.SubAckBuilder builder = MqttMessageBuilders.subAck();
+        final int messageId = subMsg.variableHeader().messageId();
+        log.debug("messageId: {}", messageId);
+
+//        MqttMessageBuilders.SubAckBuilder builder = MqttMessageBuilders.subAck();
+//        builder.packetId((short) messageId);
+//        for (int i = 0; i < subMsg.payload().topicSubscriptions().size(); i++) {
+//            builder.addGrantedQos(success ? GGConstant.MAX_QOS : MqttQoS.FAILURE);
+//        }
+//        return builder.build();
+
+        MqttFixedHeader mqttFixedHeader =
+                new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        MqttMessageIdAndPropertiesVariableHeader mqttSubAckVariableHeader =
+                new MqttMessageIdAndPropertiesVariableHeader(messageId, null);
+
+        //transform to primitive types
+        int[] grantedQoses = new int[subMsg.payload().topicSubscriptions().size()];
         for (int i = 0; i < subMsg.payload().topicSubscriptions().size(); i++) {
-            builder.addGrantedQos(success ? GGConstant.MAX_QOS : MqttQoS.FAILURE);
+            grantedQoses[i++] = success ? GGConstant.MAX_QOS.value() : MqttQoS.FAILURE.value();
         }
-        return builder.build();
+
+        MqttSubAckPayload subAckPayload = new MqttSubAckPayload(grantedQoses);
+        return new MqttSubAckMessage(mqttFixedHeader, mqttSubAckVariableHeader, subAckPayload);
     }
 
     private static MqttUnsubAckMessage unsubAckMessage(MqttUnsubscribeMessage unsubMsg) {
-        MqttMessageBuilders.UnsubAckBuilder builder = MqttMessageBuilders.unsubAck();
-        return builder.build();
+        final int messageId = unsubMsg.variableHeader().messageId();
+        log.debug("packetId: {}", messageId);
+
+//        return MqttMessageBuilders.unsubAck()
+//                .packetId((short) messageId)
+//                .build();
+
+        MqttFixedHeader mqttFixedHeader =
+                new MqttFixedHeader(MqttMessageType.UNSUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        MqttMessageIdAndPropertiesVariableHeader mqttSubAckVariableHeader =
+                new MqttMessageIdAndPropertiesVariableHeader(messageId, null);
+
+        MqttUnsubAckPayload subAckPayload = new MqttUnsubAckPayload();
+        return new MqttUnsubAckMessage(mqttFixedHeader, mqttSubAckVariableHeader, subAckPayload);
     }
 }

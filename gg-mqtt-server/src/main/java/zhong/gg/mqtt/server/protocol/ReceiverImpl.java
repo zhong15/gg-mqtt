@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import zhong.gg.mqtt.server.Broker;
 import zhong.gg.mqtt.server.Service;
 import zhong.gg.mqtt.server.utils.NamedThreadFactory;
+import zhong.gg.mqtt.server.utils.PacketIdUtils;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -63,29 +64,34 @@ public class ReceiverImpl implements Receiver, Service {
 
     @Override
     public Object onPublish(ChannelHandlerContext ctx, MqttPublishMessage msg) {
+        final int packetId = msg.variableHeader().packetId();
+        log.debug("packetId: {}", packetId);
         switch (msg.fixedHeader().qosLevel()) {
             case AT_MOST_ONCE:
                 broker.qos0Queue().offer(msg);
                 break;
             case AT_LEAST_ONCE:
-                // TODO: packet id 不能为 0，最大 2^16 - 1
+                if (!PacketIdUtils.isPacketId(packetId)) {
+                    log.warn("is not a packetId: {}", packetId);
+                    break;
+                }
                 boolean add = false;
                 if (msg.fixedHeader().isDup()) {
-                    add = addPacketId(ctx, msg.variableHeader().packetId());
+                    add = addPacketId(ctx, packetId);
                 } else {
-                    addPacketId(ctx, msg.variableHeader().packetId());
+                    addPacketId(ctx, packetId);
                     add = true;
                 }
                 if (!add) {
                     break;
                 }
                 broker.qos1Queue().offer(msg);
-                Key key1 = new Key(getClientId(ctx), msg.variableHeader().packetId());
-                ChannelFuture future = ctx.channel().writeAndFlush(pubAckMessage(msg));
-                future.addListener(e -> {
+                Key key1 = new Key(getClientId(ctx), packetId);
+                ChannelFuture future1 = ctx.channel().writeAndFlush(pubAckMessage(msg));
+                future1.addListener(e -> {
                     if (e.isDone()) {
                         if (e.isSuccess()) {
-                            removePacketId(ctx, msg.variableHeader().packetId());
+                            removePacketId(ctx, packetId);
                         } else if (e.isCancelled()) {
                             qos1PubAckFailureMap.put(key1, msg);
                         } else {
@@ -95,17 +101,21 @@ public class ReceiverImpl implements Receiver, Service {
                 });
                 break;
             case EXACTLY_ONCE:
+                if (!PacketIdUtils.isPacketId(packetId)) {
+                    log.warn("is not a packetId: {}", packetId);
+                    break;
+                }
                 boolean put = false;
                 if (msg.fixedHeader().isDup()) {
-                    put = addPacketId(ctx, msg.variableHeader().packetId());
+                    put = addPacketId(ctx, packetId);
                 } else {
-                    addPacketId(ctx, msg.variableHeader().packetId());
+                    addPacketId(ctx, packetId);
                     put = true;
                 }
                 if (!put) {
                     break;
                 }
-                Key key2 = new Key(getClientId(ctx), msg.variableHeader().packetId());
+                Key key2 = new Key(getClientId(ctx), packetId);
                 ChannelFuture future2 = ctx.channel().writeAndFlush(pubRecMessage(msg));
                 future2.addListener(e -> {
                     if (e.isDone()) {
@@ -127,18 +137,22 @@ public class ReceiverImpl implements Receiver, Service {
 
     @Override
     public Object onPubRel(ChannelHandlerContext ctx, MqttMessage msg) {
-        Key key2 = new Key(getClientId(ctx), ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId());
+        final int messageId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
+        log.debug("messageId: {}", messageId);
+        Key key2 = new Key(getClientId(ctx), messageId);
         MqttPublishMessage publishMessage = qos2PubRecSuccessMap.remove(key2);
         if (publishMessage != null) {
             broker.qos2Queue().offer(publishMessage);
         } else {
             return null;
         }
+        final int packetId = publishMessage.variableHeader().packetId();
+        log.debug("packetId: {}", packetId);
         ChannelFuture future = ctx.channel().writeAndFlush(pubCompMessage(msg));
         future.addListener(e -> {
             if (e.isDone()) {
                 if (e.isSuccess()) {
-                    removePacketId(ctx, publishMessage.variableHeader().packetId());
+                    removePacketId(ctx, packetId);
                 } else if (e.isCancelled()) {
                     qos2PubCompFailureMap.put(key2, publishMessage);
                 } else {
@@ -150,23 +164,37 @@ public class ReceiverImpl implements Receiver, Service {
     }
 
     private static MqttMessage pubAckMessage(MqttPublishMessage msg) {
-        return MqttMessageBuilders.pubAck()
-//                .reasonCode()
-                .packetId((short) msg.variableHeader().packetId())
-                .build();
+        final int packetId = msg.variableHeader().packetId();
+        log.debug("packetId: {}", packetId);
+
+//        return MqttMessageBuilders.pubAck()
+//                // MQTT 5.0 才支持 reasonCode
+////                .reasonCode()
+//                .packetId((short) packetId)
+//                .build();
+
+        MqttFixedHeader mqttFixedHeader =
+                new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        MqttPubReplyMessageVariableHeader mqttPubAckVariableHeader =
+                new MqttPubReplyMessageVariableHeader(packetId, (byte) 0, null);
+        return new MqttMessage(mqttFixedHeader, mqttPubAckVariableHeader);
     }
 
     private static MqttMessage pubRecMessage(MqttPublishMessage msg) {
+        final int packetId = msg.variableHeader().packetId();
+        log.debug("packetId: {}", packetId);
 //        MqttPubReplyMessageVariableHeader extends MqttMessageIdVariableHeader
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBREC, false, MqttQoS.AT_MOST_ONCE, false, 0);
-        MqttMessageIdVariableHeader variableHeader = MqttMessageIdVariableHeader.from(msg.variableHeader().packetId());
+        MqttMessageIdVariableHeader variableHeader = MqttMessageIdVariableHeader.from(packetId);
         return MqttMessageFactory.newMessage(fixedHeader, variableHeader, null);
     }
 
     private static MqttMessage pubCompMessage(MqttMessage msg) {
+        final int messageId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
+        log.debug("messageId: {}", messageId);
         //        MqttPubReplyMessageVariableHeader extends MqttMessageIdVariableHeader
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBCOMP, false, MqttQoS.AT_MOST_ONCE, false, 0);
-        MqttMessageIdVariableHeader variableHeader = MqttMessageIdVariableHeader.from(((MqttMessageIdVariableHeader) msg.variableHeader()).messageId());
+        MqttMessageIdVariableHeader variableHeader = MqttMessageIdVariableHeader.from(messageId);
         return MqttMessageFactory.newMessage(fixedHeader, variableHeader, null);
     }
 

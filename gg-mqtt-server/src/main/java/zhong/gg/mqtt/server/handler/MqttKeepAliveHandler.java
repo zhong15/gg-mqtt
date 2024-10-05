@@ -38,6 +38,7 @@ public class MqttKeepAliveHandler extends IdleStateHandler {
     public MqttKeepAliveHandler(ConnectServer connectServer, MqttConnectMessage msg, ConnectAction connectAction) {
         super((int) (msg.variableHeader().keepAliveTimeSeconds() * 1.5), 0, 0);
         log.info("MqttKeepAliveHandler init");
+        log.debug("keepAliveTimeSeconds: {}", msg.variableHeader().keepAliveTimeSeconds());
         this.connectServer = connectServer;
         this.connectAction = connectAction;
     }

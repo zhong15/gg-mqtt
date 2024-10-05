@@ -94,7 +94,7 @@ public class ConnectActionImpl implements ConnectAction {
                         connectServer.putSession(clientId, session);
                     }
 
-                    ctx.pipeline().addLast(new MqttKeepAliveHandler(connectServer, msg, this));
+                    ctx.pipeline().addFirst(new MqttKeepAliveHandler(connectServer, msg, this));
                 }
             });
         } else {
@@ -131,6 +131,7 @@ public class ConnectActionImpl implements ConnectAction {
 
     private void doDisconnectCore(ChannelHandlerContext ctx, ConnectServer connectServer, boolean isAuthFailure) {
         log.info("断开连接");
+        log.debug("isAuthFailure: {}", isAuthFailure);
         if (!isAuthFailure) {
             String clientId = getClientId(ctx);
             connectServer.removeChannel(clientId);
@@ -144,14 +145,14 @@ public class ConnectActionImpl implements ConnectAction {
             }
         }
         ctx.close();
+        log.debug("ctx close");
     }
 
     private static MqttMessage connAckMessage(boolean isAuthSuccess) {
         final MqttConnectReturnCode returnCode = isAuthSuccess ? MqttConnectReturnCode.CONNECTION_ACCEPTED : MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD;
-        MqttMessage msg = MqttMessageBuilders.connAck()
+        return MqttMessageBuilders.connAck()
                 .sessionPresent(true)
                 .returnCode(returnCode)
                 .build();
-        return msg;
     }
 }

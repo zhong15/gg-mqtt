@@ -18,6 +18,7 @@ package zhong.gg.mqtt.server.handler;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.mqtt.*;
@@ -34,6 +35,7 @@ import zhong.gg.mqtt.server.protocol.SubscribeAction;
  * @since 0.0.1
  */
 @Singleton
+@ChannelHandler.Sharable
 public class ServerHandler extends ChannelInboundHandlerAdapter {
     private static final Logger log = LoggerFactory.getLogger(ServerHandler.class);
 
@@ -54,6 +56,7 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        log.debug("channelRead msg: {}", msg);
         if (!(msg instanceof MqttMessage)) {
             log.warn("未知的 msg");
             ReferenceCountUtil.release(msg);
@@ -97,12 +100,14 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
                 break;
             case SUBSCRIBE:
                 // client -> server
+                subscribeAction.onSubscribe(ctx, (MqttSubscribeMessage) msg);
                 break;
 //                case SUBACK:
             // server -> client
 //                    break;
             case UNSUBSCRIBE:
                 // client -> server
+                subscribeAction.onUnsubscribe(ctx, (MqttUnsubscribeMessage) msg);
                 break;
 //                case UNSUBACK:
             // server -> client
@@ -116,6 +121,7 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
 //                    break;
             case DISCONNECT:
 //                client -> server
+                connectAction.onDisconnect(ctx, (MqttMessage) msg);
                 break;
 //                case AUTH:
             // 双向
@@ -123,21 +129,5 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
             default:
                 break;
         }
-    }
-
-    private static MqttMessage connAckMessage() {
-        MqttMessage msg = MqttMessageBuilders.connAck()
-                .sessionPresent(true)
-                .returnCode(MqttConnectReturnCode.CONNECTION_ACCEPTED)
-                .build();
-        return msg;
-    }
-
-    private static MqttMessage pubAckMessage() {
-        MqttMessage msg = MqttMessageBuilders.pubAck()
-                .packetId((short) 1)
-                .reasonCode((byte) 0)
-                .build();
-        return msg;
     }
 }

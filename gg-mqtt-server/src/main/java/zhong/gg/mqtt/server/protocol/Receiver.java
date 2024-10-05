@@ -33,6 +33,9 @@ public interface Receiver extends Action {
     default boolean addPacketId(ChannelHandlerContext ctx, int packetId) {
         Set<Integer> set = ctx.channel().attr(GGConstant.ATTR_AT_LEAST_ONCE_PACKET_ID)
                 .setIfAbsent(new ConcurrentSkipListSet<>());
+        if (set == null) {
+            set = ctx.channel().attr(GGConstant.ATTR_AT_LEAST_ONCE_PACKET_ID).get();
+        }
         return set.add(packetId);
     }
 
