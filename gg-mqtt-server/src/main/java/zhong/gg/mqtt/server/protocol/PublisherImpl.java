@@ -23,17 +23,19 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.*;
-import io.netty.util.ReferenceCountUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zhong.gg.mqtt.server.Broker;
+import zhong.gg.mqtt.server.GGConstant;
 import zhong.gg.mqtt.server.PacketIdHolder;
 import zhong.gg.mqtt.server.Service;
 import zhong.gg.mqtt.server.connect.ConnectServer;
 import zhong.gg.mqtt.server.utils.NamedThreadFactory;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -52,12 +54,12 @@ public class PublisherImpl implements Publisher, Service {
     private ExecutorService executorService;
 
     private Map<Key, MqttPublishMessage> qos0PublishFailureMap;
-    private Map<Key, MqttPublishMessage> qos1PublishSuccessMap;
+    private Map<Key, MqttPublishMessage> qos1PublishMap;
     private Map<Key, MqttPublishMessage> qos1PublishFailureMap;
-    private Map<Key, MqttPublishMessage> qos2PublishSuccessMap;
+    private Map<Key, MqttPublishMessage> qos2PublishMap;
     private Map<Key, MqttPublishMessage> qos2PublishFailureMap;
-    private Map<Key, MqttPublishMessage> qos2PubRelSuccessMap;
-    private Map<Key, MqttPublishMessage> qos2PubRelFailureMap;
+    private Set<Key> qos2PubRelSet;
+    private Set<Key> qos2PubRelFailureSet;
 
     @Inject
     public PublisherImpl(ConnectServer connectServer, Broker broker, PacketIdHolder packetIdHolder) {
@@ -68,12 +70,12 @@ public class PublisherImpl implements Publisher, Service {
         this.executorService = Executors.newCachedThreadPool(new NamedThreadFactory("消息发布者线程池"));
 
         this.qos0PublishFailureMap = new ConcurrentHashMap<>();
-        this.qos1PublishSuccessMap = new ConcurrentHashMap<>();
+        this.qos1PublishMap = new ConcurrentHashMap<>();
         this.qos1PublishFailureMap = new ConcurrentHashMap<>();
-        this.qos2PublishSuccessMap = new ConcurrentHashMap<>();
+        this.qos2PublishMap = new ConcurrentHashMap<>();
         this.qos2PublishFailureMap = new ConcurrentHashMap<>();
-        this.qos2PubRelSuccessMap = new ConcurrentHashMap<>();
-        this.qos2PubRelFailureMap = new ConcurrentHashMap<>();
+        this.qos2PubRelSet = new ConcurrentSkipListSet<>();
+        this.qos2PubRelFailureSet = new ConcurrentSkipListSet<>();
     }
 
     private void addPublishTask() {
@@ -82,10 +84,12 @@ public class PublisherImpl implements Publisher, Service {
         log.info("add qos0 publish task");
         executorService.submit(() -> {
             for (; ; ) {
-                MqttPublishMessage msg = broker.qos0Queue().poll();
-                if (msg != null) {
-                    publish(msg, MqttQoS.AT_MOST_ONCE);
-                    ReferenceCountUtil.release(msg.payload());
+                MqttPublishMessage sourceMsg0 = broker.qos0Queue().poll();
+                if (sourceMsg0 != null) {
+                    publish(sourceMsg0, MqttQoS.AT_MOST_ONCE);
+                    log.debug("sourceMsg0 refCnt: {}", sourceMsg0.refCnt());
+                    sourceMsg0.release();
+                    log.debug("sourceMsg0 release");
                 }
             }
         });
@@ -93,10 +97,12 @@ public class PublisherImpl implements Publisher, Service {
         log.info("add qos1 publish task");
         executorService.submit(() -> {
             for (; ; ) {
-                MqttPublishMessage msg = broker.qos1Queue().poll();
-                if (msg != null) {
-                    publish(msg, MqttQoS.AT_LEAST_ONCE);
-                    ReferenceCountUtil.release(msg.payload());
+                MqttPublishMessage sourceMsg1 = broker.qos1Queue().poll();
+                if (sourceMsg1 != null) {
+                    publish(sourceMsg1, MqttQoS.AT_LEAST_ONCE);
+                    log.debug("sourceMsg1 refCnt: {}", sourceMsg1.refCnt());
+                    sourceMsg1.release();
+                    log.debug("sourceMsg1 release");
                 }
             }
         });
@@ -104,10 +110,12 @@ public class PublisherImpl implements Publisher, Service {
         log.info("add qos2 publish task");
         executorService.submit(() -> {
             for (; ; ) {
-                MqttPublishMessage msg = broker.qos2Queue().poll();
-                if (msg != null) {
-                    publish(msg, MqttQoS.EXACTLY_ONCE);
-                    ReferenceCountUtil.release(msg.payload());
+                MqttPublishMessage sourceMsg2 = broker.qos2Queue().poll();
+                if (sourceMsg2 != null) {
+                    publish(sourceMsg2, MqttQoS.EXACTLY_ONCE);
+                    log.debug("sourceMsg2 refCnt: {}", sourceMsg2.refCnt());
+                    sourceMsg2.release();
+                    log.debug("sourceMsg2 release");
                 }
             }
         });
@@ -124,15 +132,19 @@ public class PublisherImpl implements Publisher, Service {
             switch (qos) {
                 case AT_MOST_ONCE:
                     log.debug("publish qos 0");
-                    final int packetId0 = packetIdHolder.incrementAndLockPacketId(clientId);
+                    final int packetId0 = GGConstant.QOS0_PACKET_ID;
                     log.debug("packetId0: {}", packetId0);
                     final Key key0 = new Key(clientId, packetId0);
                     MqttPublishMessage msg0 = copyMsg(sourceMsg, qos, packetId0);
+                    log.debug("msg0 refCnt: {}", msg0.refCnt());
+                    msg0.retain();
                     ChannelFuture future0 = channel.writeAndFlush(msg0);
                     future0.addListener(f -> {
                         if (f.isDone()) {
                             if (f.isSuccess()) {
-                                packetIdHolder.unlockPacketId(clientId, packetId0);
+                                log.debug("msg0 refCnt: {}", msg0.refCnt());
+                                msg0.release();
+                                log.debug("msg0 release");
                             } else if (f.isCancelled()) {
                                 qos0PublishFailureMap.put(key0, msg0);
                             } else {
@@ -147,14 +159,18 @@ public class PublisherImpl implements Publisher, Service {
                     log.debug("packetId1: {}", packetId1);
                     final Key key1 = new Key(clientId, packetId1);
                     MqttPublishMessage msg1 = copyMsg(sourceMsg, qos, packetId1);
+                    log.debug("msg1 refCnt: {}", msg1.refCnt());
+                    msg1.retain();
+                    qos1PublishMap.put(key1, msg1);
                     ChannelFuture future1 = channel.writeAndFlush(msg1);
                     future1.addListener(f -> {
                         if (f.isDone()) {
                             if (f.isSuccess()) {
-                                qos1PublishSuccessMap.put(key1, msg1);
                             } else if (f.isCancelled()) {
+                                qos1PublishMap.remove(key1);
                                 qos1PublishFailureMap.put(key1, msg1);
                             } else {
+                                qos1PublishMap.remove(key1);
                                 qos1PublishFailureMap.put(key1, msg1);
                             }
                         }
@@ -166,14 +182,18 @@ public class PublisherImpl implements Publisher, Service {
                     log.debug("packetId2: {}", packetId2);
                     final Key key2 = new Key(clientId, packetId2);
                     MqttPublishMessage msg2 = copyMsg(sourceMsg, qos, packetId2);
+                    log.debug("msg2 refCnt: {}", msg2.refCnt());
+                    msg2.retain();
+                    qos2PublishMap.put(key2, msg2);
                     ChannelFuture future2 = channel.writeAndFlush(msg2);
                     future2.addListener(f -> {
                         if (f.isDone()) {
                             if (f.isSuccess()) {
-                                qos2PublishSuccessMap.put(key2, msg2);
                             } else if (f.isCancelled()) {
+                                qos2PublishMap.remove(key2);
                                 qos2PublishFailureMap.put(key2, msg2);
                             } else {
+                                qos2PublishMap.remove(key2);
                                 qos2PublishFailureMap.put(key2, msg2);
                             }
                         }
@@ -186,10 +206,10 @@ public class PublisherImpl implements Publisher, Service {
     }
 
     private MqttPublishMessage copyMsg(MqttPublishMessage msg, MqttQoS qos, int packetId) {
+        // TODO: 设置 isDup
         MqttFixedHeader fixedHeader = new MqttFixedHeader(msg.fixedHeader().messageType(), msg.fixedHeader().isDup(), qos, msg.fixedHeader().isRetain(), msg.fixedHeader().remainingLength());
         MqttPublishVariableHeader variableHeader = new MqttPublishVariableHeader(msg.variableHeader().topicName(), packetId,//properties
                 null);
-        // TODO: 释放 nio 内存
         ByteBuf payload = msg.payload().copy();
         return new MqttPublishMessage(fixedHeader, variableHeader, payload);
     }
@@ -199,7 +219,15 @@ public class PublisherImpl implements Publisher, Service {
         String clientId = getClientId(ctx);
         final int messageId = msg.variableHeader().messageId();
         log.debug("messageId: {}", messageId);
-        qos1PublishSuccessMap.remove(new Key(clientId, messageId));
+        final Key key1 = new Key(clientId, messageId);
+        MqttPublishMessage msg1 = qos1PublishMap.remove(key1);
+        if (msg1 == null) {
+            log.warn("msg1 null：已经 onPubAck");
+            return null;
+        }
+        log.debug("msg1 refCnt: {}", msg1.refCnt());
+        msg1.release();
+        log.debug("msg1 release");
         packetIdHolder.unlockPacketId(clientId, messageId);
         return null;
     }
@@ -209,20 +237,25 @@ public class PublisherImpl implements Publisher, Service {
         String clientId = getClientId(ctx);
         final int messageId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
         log.debug("messageId: {}", messageId);
-        final Key key = new Key(clientId, messageId);
-        MqttPublishMessage mqttPublishMessage = qos2PublishSuccessMap.remove(key);
-        if (mqttPublishMessage == null) {
-            log.warn("mqttPublishMessage is null");
+        final Key key2 = new Key(clientId, messageId);
+        MqttPublishMessage msg2 = qos2PublishMap.remove(key2);
+        if (msg2 == null) {
+            log.warn("msg2 null：已经 onPubRec");
             return null;
         }
+        log.debug("msg2 refCnt: {}", msg2.refCnt());
+        msg2.release();
+        log.debug("msg2 release");
+        qos2PubRelSet.add(key2);
         ChannelFuture future = ctx.channel().writeAndFlush(pubRelMessage(msg));
         future.addListener(f -> {
             if (f.isDone()) {
-                qos2PubRelSuccessMap.put(key, mqttPublishMessage);
             } else if (f.isCancelled()) {
-                qos2PubRelFailureMap.put(key, mqttPublishMessage);
+                qos2PubRelSet.remove(key2);
+                qos2PubRelFailureSet.add(key2);
             } else {
-                qos2PubRelFailureMap.put(key, mqttPublishMessage);
+                qos2PubRelSet.remove(key2);
+                qos2PubRelFailureSet.add(key2);
             }
         });
         return null;
@@ -233,7 +266,11 @@ public class PublisherImpl implements Publisher, Service {
         String clientId = getClientId(ctx);
         final int messageId = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
         log.debug("messageId: {}", messageId);
-        qos2PubRelSuccessMap.remove(new Key(clientId, messageId));
+        boolean success = qos2PubRelSet.remove(new Key(clientId, messageId));
+        if (!success) {
+            log.warn("msg2 null：已经 onPubComp");
+            return null;
+        }
         packetIdHolder.unlockPacketId(clientId, messageId);
         return null;
     }
@@ -258,49 +295,60 @@ public class PublisherImpl implements Publisher, Service {
         log.info("add retry task");
 
         log.info("add qos0 retry task");
-        // TODO: 释放 nio 内存
         executorService.submit(() -> {
             //qos0PublishFailureMap
+            // TODO: packetId 固定 GGConstant.QOS0_PACKET_ID
+            // TODO: 设置 isDup
+            // TODO: 先 msg0.retain()
             // TODO: publish
             // TODO: 删除 qos0PublishFailureMap
+            // TODO: 成功后 msg0.release()
         });
 
         log.info("add qos1 retry task");
         executorService.submit(() -> {
-            //qos1PublishSuccessMap
-            // TODO: 重新发送
+            //qos1PublishMap
+            // TODO: 设置 isDup
+            // TODO: 先 msg1.retain()
+            // TODO: publish
         });
         log.info("add qos1 retry task");
         executorService.submit(() -> {
             //qos1PublishFailureMap
-            // TODO: 重新发送
+            // TODO: 设置 isDup
+            // TODO: 先 msg1.retain()
+            // TODO: publish
             // TODO: 删除 qos1PublishFailureMap
-            // TODO: 添加 qos1PublishSuccessMap
+            // TODO: 添加 qos1PublishMap
         });
 
         log.info("add qos2 retry task");
         executorService.submit(() -> {
-            //qos2PublishSuccessMap
-            // TODO: 重新发送
+            //qos2PublishMap
+            // TODO: 设置 isDup
+            // TODO: 先 msg2.retain()
+            // TODO: publish
         });
         log.info("add qos2 retry task");
         executorService.submit(() -> {
             //qos2PublishFailureMap
-            // TODO: 重新发送
+            // TODO: 设置 isDup
+            // TODO: 先 msg2.retain()
+            // TODO: publish
             // TODO: 删除 qos2PublishFailureMap
-            // TODO: 添加 qos2PublishSuccessMap
+            // TODO: 添加 qos2PublishMap
         });
         log.info("add qos2 retry task");
         executorService.submit(() -> {
-            //qos2PubRelSuccessMap
+            //qos2PubRelSet
             // TODO: 重新发送
         });
         log.info("add qos2 retry task");
         executorService.submit(() -> {
-            //qos2PubRelFailureMap
+            //qos2PubRelFailureSet
             // TODO: 重新发送
-            // TODO: 删除 qos2PubRelFailureMap
-            // TODO: 添加 qos2PubRelSuccessMap
+            // TODO: 删除 qos2PubRelFailureSet
+            // TODO: 添加 qos2PubRelSet
         });
     }
 

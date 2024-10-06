@@ -31,6 +31,7 @@ public interface GGConstant {
     AttributeKey<Integer> ATTR_EXACTLY_ONCE_PACKET_ID = AttributeKey.valueOf("packetId2");
     // TODO: 应该读取配置文件
     MqttQoS MAX_QOS = MqttQoS.EXACTLY_ONCE;
+    int QOS0_PACKET_ID = -1;
     int MIN_PACKET_ID = 1;
     int MAX_PACKET_ID = (~(-1 << 16)) - 1;
     int retryTimes = 3;

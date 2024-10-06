@@ -22,13 +22,16 @@ import java.util.Objects;
  * @author Zhong
  * @since 0.0.1
  */
-public class Key {
+public class Key implements Comparable<Key> {
     private final String clientId;
     private final int packetId;
     long retryTime;
     int retryCount;
 
     public Key(String clientId, int packetId) {
+        if (clientId == null) {
+            throw new NullPointerException("clientId is null");
+        }
         this.clientId = clientId;
         this.packetId = packetId;
         this.retryTime = System.currentTimeMillis();
@@ -49,5 +52,18 @@ public class Key {
     @Override
     public int hashCode() {
         return Objects.hash(clientId, packetId);
+    }
+
+    @Override
+    public int compareTo(Key o) {
+        if (o == null) {
+            return 1;
+        }
+        // 先使用 packetId 比较可增加随机概率
+        int first = Integer.compare(this.packetId, o.packetId);
+        if (first != 0) {
+            return first;
+        }
+        return this.clientId.compareTo(o.clientId);
     }
 }
