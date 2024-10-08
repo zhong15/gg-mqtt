@@ -120,7 +120,7 @@ public class GgServer implements Server, ConnectServer, Broker, PacketIdHolder {
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, 128)
-                    .childOption(ChannelOption.SO_KEEPALIVE, true)
+                    .childOption(ChannelOption.SO_KEEPALIVE, false)
                     .childOption(ChannelOption.TCP_NODELAY, true)
                     .childOption(ChannelOption.SO_REUSEADDR, true);
             ChannelFuture f = bootstrap.bind("127.0.0.1", port).sync();

@@ -132,33 +132,40 @@ public class PublisherImpl implements Publisher, Service {
             switch (qos) {
                 case AT_MOST_ONCE:
                     log.debug("publish qos 0");
+                    final boolean retryable0 = GGConstant.QOS0_PUBLISH_RETRY_TIMES > 0;
                     final int packetId0 = GGConstant.QOS0_PACKET_ID;
                     log.debug("packetId0: {}", packetId0);
                     final Key key0 = new Key(clientId, packetId0);
-                    MqttPublishMessage msg0 = copyMsg(sourceMsg, qos, packetId0);
+                    MqttPublishMessage msg0 = retainedSliceMsg(sourceMsg, qos, packetId0);
                     log.debug("msg0 refCnt: {}", msg0.refCnt());
-                    msg0.retain();
+                    if (retryable0) {
+                        msg0.retain();
+                    }
                     ChannelFuture future0 = channel.writeAndFlush(msg0);
                     future0.addListener(f -> {
                         if (f.isDone()) {
                             if (f.isSuccess()) {
-                                log.debug("msg0 refCnt: {}", msg0.refCnt());
-                                msg0.release();
-                                log.debug("msg0 release");
                             } else if (f.isCancelled()) {
-                                qos0PublishFailureMap.put(key0, msg0);
+                                if (retryable0) {
+                                    log.debug("msg0 refCnt: {}", msg0.refCnt());
+                                    qos0PublishFailureMap.put(key0, msg0);
+                                }
                             } else {
-                                qos0PublishFailureMap.put(key0, msg0);
+                                if (retryable0) {
+                                    log.debug("msg0 refCnt: {}", msg0.refCnt());
+                                    qos0PublishFailureMap.put(key0, msg0);
+                                }
                             }
                         }
                     });
                     break;
                 case AT_LEAST_ONCE:
                     log.debug("publish qos 1");
+                    final boolean retryable1 = GGConstant.QOS1_PUBLISH_RETRY_TIMES > 0;
                     final int packetId1 = packetIdHolder.incrementAndLockPacketId(clientId);
                     log.debug("packetId1: {}", packetId1);
                     final Key key1 = new Key(clientId, packetId1);
-                    MqttPublishMessage msg1 = copyMsg(sourceMsg, qos, packetId1);
+                    MqttPublishMessage msg1 = retainedSliceMsg(sourceMsg, qos, packetId1);
                     log.debug("msg1 refCnt: {}", msg1.refCnt());
                     msg1.retain();
                     qos1PublishMap.put(key1, msg1);
@@ -168,10 +175,18 @@ public class PublisherImpl implements Publisher, Service {
                             if (f.isSuccess()) {
                             } else if (f.isCancelled()) {
                                 qos1PublishMap.remove(key1);
-                                qos1PublishFailureMap.put(key1, msg1);
+                                if (retryable1) {
+                                    qos1PublishFailureMap.put(key1, msg1);
+                                } else {
+                                    msg1.release();
+                                }
                             } else {
                                 qos1PublishMap.remove(key1);
-                                qos1PublishFailureMap.put(key1, msg1);
+                                if (retryable1) {
+                                    qos1PublishFailureMap.put(key1, msg1);
+                                } else {
+                                    msg1.release();
+                                }
                             }
                         }
                     });
@@ -181,7 +196,7 @@ public class PublisherImpl implements Publisher, Service {
                     final int packetId2 = packetIdHolder.incrementAndLockPacketId(clientId);
                     log.debug("packetId2: {}", packetId2);
                     final Key key2 = new Key(clientId, packetId2);
-                    MqttPublishMessage msg2 = copyMsg(sourceMsg, qos, packetId2);
+                    MqttPublishMessage msg2 = retainedSliceMsg(sourceMsg, qos, packetId2);
                     log.debug("msg2 refCnt: {}", msg2.refCnt());
                     msg2.retain();
                     qos2PublishMap.put(key2, msg2);
@@ -205,13 +220,23 @@ public class PublisherImpl implements Publisher, Service {
         });
     }
 
-    private MqttPublishMessage copyMsg(MqttPublishMessage msg, MqttQoS qos, int packetId) {
-        // TODO: 设置 isDup
+    private MqttPublishMessage retainedSliceMsg(MqttPublishMessage msg, MqttQoS qos, int packetId) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(msg.fixedHeader().messageType(), msg.fixedHeader().isDup(), qos, msg.fixedHeader().isRetain(), msg.fixedHeader().remainingLength());
         MqttPublishVariableHeader variableHeader = new MqttPublishVariableHeader(msg.variableHeader().topicName(), packetId,//properties
                 null);
-        ByteBuf payload = msg.payload().copy();
+        ByteBuf payload = msg.payload().retainedSlice();
         return new MqttPublishMessage(fixedHeader, variableHeader, payload);
+    }
+
+    private MqttPublishMessage retryMsg(MqttPublishMessage msg) {
+        msg.payload().resetReaderIndex();
+        if (msg.fixedHeader().isDup()) {
+            return msg;
+        }
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(msg.fixedHeader().messageType(), GGConstant.IS_DUP_TRUE, msg.fixedHeader().qosLevel(), msg.fixedHeader().isRetain(), msg.fixedHeader().remainingLength());
+        MqttPublishVariableHeader variableHeader = new MqttPublishVariableHeader(msg.variableHeader().topicName(), msg.variableHeader().packetId(),//properties
+                null);
+        return new MqttPublishMessage(fixedHeader, variableHeader, msg.payload());
     }
 
     @Override
@@ -299,16 +324,46 @@ public class PublisherImpl implements Publisher, Service {
             //qos0PublishFailureMap
             // TODO: packetId 固定 GGConstant.QOS0_PACKET_ID
             // TODO: 设置 isDup
+            // TODO: 先 msg0.payload().resetReaderIndex()
             // TODO: 先 msg0.retain()
             // TODO: publish
             // TODO: 删除 qos0PublishFailureMap
             // TODO: 成功后 msg0.release()
+            qos0PublishFailureMap.forEach((key0, msg0) -> {
+                log.debug("publish qos 0");
+                final int packetId0 = GGConstant.QOS0_PACKET_ID;
+                log.debug("packetId0: {}", packetId0);
+                log.debug("msg0 refCnt: {}", msg0.refCnt());
+                Channel channel = connectServer.getChannel(key0.getClientId());
+                if (channel == null) {
+                    return;
+                }
+                key0.retryCount++;
+                final boolean retryable = key0.retryCount < GGConstant.QOS0_PUBLISH_RETRY_TIMES;
+                final MqttPublishMessage retryMsg0 = retryMsg(msg0);
+                if (retryable) {
+                    retryMsg0.retain();
+                }
+                ChannelFuture future0 = channel.writeAndFlush(retryMsg0);
+                future0.addListener(f -> {
+                    if (f.isDone()) {
+                        if (f.isSuccess() || !retryable) {
+                            qos0PublishFailureMap.remove(key0);
+                        } else if (f.isCancelled()) {
+                            log.debug("retryMsg0 refCnt: {}", retryMsg0.refCnt());
+                        } else {
+                            log.debug("retryMsg0 refCnt: {}", retryMsg0.refCnt());
+                        }
+                    }
+                });
+            });
         });
 
         log.info("add qos1 retry task");
         executorService.submit(() -> {
             //qos1PublishMap
             // TODO: 设置 isDup
+            // TODO: 先 msg1.payload().resetReaderIndex()
             // TODO: 先 msg1.retain()
             // TODO: publish
         });
@@ -316,6 +371,7 @@ public class PublisherImpl implements Publisher, Service {
         executorService.submit(() -> {
             //qos1PublishFailureMap
             // TODO: 设置 isDup
+            // TODO: 先 msg1.payload().resetReaderIndex()
             // TODO: 先 msg1.retain()
             // TODO: publish
             // TODO: 删除 qos1PublishFailureMap
@@ -326,6 +382,7 @@ public class PublisherImpl implements Publisher, Service {
         executorService.submit(() -> {
             //qos2PublishMap
             // TODO: 设置 isDup
+            // TODO: 先 msg2.payload().resetReaderIndex()
             // TODO: 先 msg2.retain()
             // TODO: publish
         });
@@ -333,6 +390,7 @@ public class PublisherImpl implements Publisher, Service {
         executorService.submit(() -> {
             //qos2PublishFailureMap
             // TODO: 设置 isDup
+            // TODO: 先 msg2.payload().resetReaderIndex()
             // TODO: 先 msg2.retain()
             // TODO: publish
             // TODO: 删除 qos2PublishFailureMap

@@ -66,4 +66,12 @@ public class Key implements Comparable<Key> {
         }
         return this.clientId.compareTo(o.clientId);
     }
+
+    public String getClientId() {
+        return clientId;
+    }
+
+    public int getPacketId() {
+        return packetId;
+    }
 }

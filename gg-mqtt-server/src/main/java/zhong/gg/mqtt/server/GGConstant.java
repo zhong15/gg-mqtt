@@ -34,8 +34,11 @@ public interface GGConstant {
     int QOS0_PACKET_ID = -1;
     int MIN_PACKET_ID = 1;
     int MAX_PACKET_ID = (~(-1 << 16)) - 1;
-    int retryTimes = 3;
-    int pubAckRetryCount = 3;
-    int pubRecRetryCount = 3;
-    int pubCompRetryCount = 3;
+    int QOS0_PUBLISH_RETRY_TIMES = 3;
+    int QOS1_PUBLISH_RETRY_TIMES = 3;
+    int QOS1_PUB_ACK_RETRY_TIMES = 3;
+    int QOS2_PUBLISH_RETRY_TIMES = 3;
+    int QOS2_PUB_REC_RETRY_TIMES = 3;
+    int QOS2_PUB_COMP_RETRY_TIMES = 3;
+    boolean IS_DUP_TRUE = true;
 }
